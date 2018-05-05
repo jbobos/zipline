@@ -26,6 +26,7 @@ from . import gens
 from . import utils
 from .utils.calendars import get_calendar
 from .utils.numpy_utils import numpy_version
+from .utils.pandas_utils import new_pandas
 from .utils.run_algo import run_algorithm
 from ._version import get_versions
 
@@ -86,21 +87,36 @@ __all__ = [
 ]
 
 
-def setup(self):
+def setup(self,
+          np=np,
+          numpy_version=numpy_version,
+          StrictVersion=StrictVersion,
+          new_pandas=new_pandas):
+
     legacy_version = '1.13'
-    if numpy_version <= StrictVersion(legacy_version):
+    if numpy_version > StrictVersion(legacy_version):
+        self.old_opts = np.get_printoptions()
+        np.set_printoptions(legacy=legacy_version)
+    else:
         self.old_opts = None
-        return
 
-    self.old_opts = np.get_printoptions()
-    self.old_invalid = np.geterr()['invalid']
-    np.set_printoptions(legacy=legacy_version)
-    np.seterr(invalid='ignore')
+    if new_pandas:
+        self.old_err = np.geterr()
+        # old pandas has numpy compat that sets this
+        np.seterr(all='ignore')
+    else:
+        self.old_err = None
 
 
-def teardown(self):
-    if self.old_opts is None:
-        return
+def teardown(self, np=np):
+    if self.old_err is not None:
+        np.seterr(**self.old_err)
 
-    np.seterr(invalid=self.old_invalid)
-    np.set_printoptions(**self.old_opts)
+    if self.old_opts is not None:
+        np.set_printoptions(**self.old_opts)
+
+
+del np
+del numpy_version
+del StrictVersion
+del new_pandas
